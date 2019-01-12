@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jan 12 15:37:01 2019
+
+@author: Suraj Durgesht
+"""
+
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
