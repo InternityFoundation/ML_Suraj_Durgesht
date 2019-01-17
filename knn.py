@@ -4,73 +4,102 @@ Created on Fri Jan 11 12:30:50 2019
 
 @author: Suraj
 """
+import numpy as np
+import pandas as pd
 
-# Python3 program to find groups of unknown 
-# Points using K nearest neighbour algorithm. 
+dataset = pd.read_csv('iris.csv')
+print(dataset.shape)
+print(dataset.head(5))
+#
+print(dataset.describe())
+#
+print(dataset.groupby('Species').size())
 
-import math 
+feature_columns = ['SepalLengthCm', 'SepalWidthCm', 'PetalLengthCm','PetalWidthCm']
+X = dataset[feature_columns].values
+y = dataset['Species'].values
 
-def classifyAPoint(points,p,k=3): 
-	''' 
-	This function finds classification of p using 
-	k nearest neighbour algorithm. It assumes only two 
-	groups and returns 0 if p belongs to group 0, else 
-	1 (belongs to group 1). 
+from sklearn.preprocessing import LabelEncoder
+le = LabelEncoder()
+y = le.fit_transform(y)
 
-	Parameters - 
-		points : Dictionary of training points having two keys - 0 and 1 
-				Each key have a list of training data points belong to that 
+from sklearn.model_selection import train_test_split
+#from sklearn.cross_validation import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 0)
 
-		p : A touple ,test data point of form (x,y) 
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-		k : number of nearest neighbour to consider, default is 3 
-	'''
+plt.figure()
+sns.pairplot(dataset.drop("Id", axis=1), hue = "Species", size=3, markers=["o", "s", "D"])
+plt.show()
 
-	distance=[] 
-	for group in points: 
-		for feature in points[group]: 
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure(1, figsize=(20, 15))
+ax = Axes3D(fig, elev=48, azim=134)
+ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=y,
+           cmap=plt.cm.Set1, edgecolor='k', s = X[:, 3]*50)
 
-			#calculate the euclidean distance of p from training points 
-			euclidean_distance = math.sqrt((feature[0]-p[0])**2 +(feature[1]-p[1])**2) 
+for name, label in [('Virginica', 0), ('Setosa', 1), ('Versicolour', 2)]:
+    ax.text3D(X[y == label, 0].mean(),
+              X[y == label, 1].mean(),
+              X[y == label, 2].mean(), name,
+              horizontalalignment='center',
+              bbox=dict(alpha=.5, edgecolor='w', facecolor='w'),size=25)
 
-			# Add a touple of form (distance,group) in the distance list 
-			distance.append((euclidean_distance,group)) 
+ax.set_title("3D visualization", fontsize=40)
+ax.set_xlabel("Sepal Length [cm]", fontsize=25)
+ax.w_xaxis.set_ticklabels([])
+ax.set_ylabel("Sepal Width [cm]", fontsize=25)
+ax.w_yaxis.set_ticklabels([])
+ax.set_zlabel("Petal Length [cm]", fontsize=25)
+ax.w_zaxis.set_ticklabels([])
 
-	# sort the distance list in ascending order 
-	# and select first k distances 
-	distance = sorted(distance)[:k] 
+plt.show()
+#
+## Fitting clasifier to the Training set
+## Loading libraries
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.model_selection import cross_val_score
+#
+## Instantiate learning model (k = 3)
+classifier = KNeighborsClassifier(n_neighbors=3)
+#
+## Fitting the model
+classifier.fit(X_train, y_train)
+#
+## Predicting the Test set results
+y_pred = classifier.predict(X_test)
+#
+cm = confusion_matrix(y_test, y_pred)
+#
+accuracy = accuracy_score(y_test, y_pred)*100
+print('Accuracy of our model is equal ' + str(round(accuracy, 2)) + ' %.')
+#
+## creating list of K for KNN
+k_list = list(range(1,50,2))
+# creating list of cv scores
+cv_scores = []
 
-	freq1 = 0 #frequency of group 0 
-	freq2 = 0 #frequency og group 1 
+# perform 10-fold cross validation
+for k in k_list:
+    knn = KNeighborsClassifier(n_neighbors=k)
+    scores = cross_val_score(knn, X_train, y_train, cv=10, scoring='accuracy')
+    cv_scores.append(scores.mean())
+    
+    # changing to misclassification error
+MSE = [1 - x for x in cv_scores]
 
-	for d in distance: 
-		if d[1] == 0: 
-			freq1 += 1
-		elif d[1] == 1: 
-			freq2 += 1
+plt.figure()
+plt.figure(figsize=(15,10))
+plt.title('The optimal number of neighbors', fontsize=20, fontweight='bold')
+plt.xlabel('Number of Neighbors K', fontsize=15)
+plt.ylabel('Misclassification Error', fontsize=15)
+sns.set_style("whitegrid")
+plt.plot(k_list, MSE)
 
-	return 0 if freq1>freq2 else 1
-
-# driver function 
-def main(): 
-
-	# Dictionary of training points having two keys - 0 and 1 
-	# key 0 have points belong to class 0 
-	# key 1 have points belong to class 1 
-
-	points = {0:[(1,12),(2,5),(3,6),(3,10),(3.5,8),(2,11),(2,9),(1,7)], 
-			1:[(5,3),(3,2),(1.5,9),(7,2),(6,1),(3.8,1),(5.6,4),(4,2),(2,5)]} 
-
-	# testing point p(x,y) 
-	p = (2.5,7) 
-
-	# Number of neighbours 
-	k = 3
-
-	print("The value classified to unknown point is: {}".\ 
-		format(classifyAPoint(points,p,k))) 
-
-if __name__ == '__main__': 
-	main() 
-	
-# This code is contributed by Atul Kumar (www.fb.com/atul.kr.007) 
+plt.show()
+    
+best_k = k_list[MSE.index(min(MSE))]
+print("The optimal number of neighbors is %d." % best_k)
